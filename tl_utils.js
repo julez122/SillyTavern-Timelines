@@ -130,7 +130,7 @@ export async function navigateToMessage(chatSessionName, messageId, swipeId = -1
 
 /**
  * Closes any open drawers that are not pinned.
- * It also toggles the display icons and manages the animation during the transition.
+ * Uses SillyTavern's class-based drawer state without leaving inline display styles behind.
  */
 // TODO: The `openDrawer` style class appears nowhere else in this project.
 // TODO: Does Timelines need this to interact with the main parts of ST (which does use `openDrawer`), or is this actually a no-op?
@@ -139,14 +139,18 @@ export async function navigateToMessage(chatSessionName, messageId, swipeId = -1
 //   - `onTimelineButtonClick` (`index.js`)
 //   - Upon returning from `navigateToMessage` (`tl_utils.js`)
 export function closeOpenDrawers() {
-    var openDrawers = $('.openDrawer').not('.pinnedOpen');
+    const openDrawers = $('.openDrawer').not('.pinnedOpen');
+    const openIcons = $('.openIcon').not('.drawerPinnedOpen');
 
-    openDrawers.addClass('resizing').slideToggle(200, 'swing', function () {
-        $(this).closest('.drawer-content').removeClass('resizing');
-    });
-
-    $('.openIcon').toggleClass('closedIcon openIcon');
-    openDrawers.toggleClass('closedDrawer openDrawer');
+    // Match SillyTavern's current drawer state model. jQuery slideToggle writes
+    // an inline display:none that prevents the core class-based handler from
+    // reopening the Extensions drawer until the page is refreshed.
+    openIcons.removeClass('openIcon').addClass('closedIcon');
+    openDrawers
+        .stop(true, true)
+        .removeClass('resizing openDrawer')
+        .addClass('closedDrawer')
+        .css('display', '');
 }
 
 /**
@@ -184,8 +188,10 @@ export function closeTippy() {
  * - Appends the modal to the body and shows it when called.
  * - Appends the modal back to its original parent in the DOM when it's closed.
  * - Closes the modal either by clicking its close button or clicking outside of it.
+ *
+ * @param {Function} [onClose] - Optional extension-specific state cleanup.
  */
-export function handleModalDisplay() {
+export function handleModalDisplay(onClose) {
     let modal = document.getElementById('timelinesModal');
     if (!modal) {
         console.error('Modal not found!');
@@ -198,10 +204,15 @@ export function handleModalDisplay() {
         return;
     }
 
-    // The "close" button
-    closeBtn.onclick = function () {
+    function closeTimelineModal() {
         closeModal();
         closeTippy();
+        onClose?.();
+    }
+
+    // The "close" button
+    closeBtn.onclick = function () {
+        closeTimelineModal();
     };
 
     // When clicked outside
@@ -213,8 +224,7 @@ export function handleModalDisplay() {
     // See e.g. https://wesbos.com/javascript/06-serious-practice-exercises/click-outside-modal
     modal.onclick = function (event) {
         if (event.target == modal) {  // outer div itself clicked (as opposed to something inside it clicked)
-            closeModal();
-            closeTippy();
+            closeTimelineModal();
         }
     };
 

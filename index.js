@@ -164,15 +164,109 @@ let activeTapTippy = null;  // currently open full info panel instance
 let currentlyOpenNode = null;  // node whose full info panel instance it is
 let isTapTippyVisible = false;  // and whether it's open
 
+const MOBILE_TIMELINE_MEDIA_QUERY = '(max-width: 700px)';
+
+function isMobileTimelineLayout() {
+    return window.matchMedia(MOBILE_TIMELINE_MEDIA_QUERY).matches;
+}
+
+/**
+ * Whether the mobile layout should show the node details as a docked pane
+ * beside the still-interactive graph rather than as a floating Tippy panel.
+ *
+ * @returns {boolean} True for the mobile, non-fixed full-info-panel mode.
+ */
+function usesMobileDockedDetailsPane() {
+    return isMobileTimelineLayout() && !extension_settings.timeline.fixedTooltip;
+}
+
+/**
+ * Hides the mobile docked details pane and removes the old node content.
+ */
+function closeMobileDockedDetailsPane() {
+    const pane = document.getElementById('timeline-mobile-details');
+    const paneContent = document.getElementById('timeline-mobile-details-content');
+    if (!pane || !paneContent) {
+        return;
+    }
+
+    pane.hidden = true;
+    paneContent.replaceChildren();
+}
+
+/**
+ * Moves the selected node into the exposed graph rail beside the mobile details
+ * pane. The graph remains a normal Cytoscape canvas, so the user can continue
+ * panning, zooming, and selecting any other node in that rail.
+ *
+ * @param {Object} ele - The selected Cytoscape node.
+ */
+function centerNodeInMobileGraphRail(ele) {
+    const pane = document.getElementById('timeline-mobile-details');
+    const graph = document.getElementById('timelinesDiagramDiv');
+    if (!pane || pane.hidden || !graph) {
+        return;
+    }
+
+    const paneRect = pane.getBoundingClientRect();
+    const graphRect = graph.getBoundingClientRect();
+    const railWidth = paneRect.left - graphRect.left;
+    if (railWidth <= 0) {
+        return;
+    }
+
+    const nodePosition = ele.renderedPosition();
+    ele.cy().panBy({ x: (railWidth / 2) - nodePosition.x, y: 0 });
+}
+
+/**
+ * Creates the existing full-info content in a detached Tippy instance, then
+ * moves that content into the mobile docked pane. Reusing the established
+ * content builder keeps every session-navigation action identical in both
+ * panel modes.
+ *
+ * @param {Object} ele - The Cytoscape node whose details should be displayed.
+ */
+function showMobileDockedDetailsPane(ele) {
+    const pane = document.getElementById('timeline-mobile-details');
+    const paneContent = document.getElementById('timeline-mobile-details-content');
+    const closeButton = document.getElementById('timeline-mobile-details-close');
+    if (!pane || !paneContent || !closeButton) {
+        console.error('Timelines: mobile details pane is missing from the timeline view.');
+        return;
+    }
+
+    const stagingTip = makeTapTippy(ele);
+    const content = stagingTip.popper.querySelector('.tap_tippy_content') ?? stagingTip.props.content();
+    content.remove();
+    stagingTip.destroy();
+
+    paneContent.replaceChildren(content);
+    pane.hidden = false;
+    closeButton.onclick = () => closeTapTippy();
+    isTapTippyVisible = true;
+    requestAnimationFrame(() => centerNodeInMobileGraphRail(ele));
+}
+
 /*
- * Close the node full info panel, if it exists.
+ * Close the node full-info presentation, whether it is a desktop Tippy panel
+ * or the mobile docked pane.
  */
 function closeTapTippy() {
     if (activeTapTippy) {
         activeTapTippy.hide();
         activeTapTippy = null;
-        isTapTippyVisible = false;
-        currentlyOpenNode = null;
+    }
+    closeMobileDockedDetailsPane();
+    isTapTippyVisible = false;
+    currentlyOpenNode = null;
+}
+
+function resetTimelineInteractionState() {
+    closeTapTippy();
+    if (theCy) {
+        resetLegendHighlight(theCy);
+        restoreElements(theCy);
     }
 }
 
@@ -455,9 +549,14 @@ function formatNodeMessage(mes) {
  */
 
 function makeTapTippy(ele) {
+    // Keep Popper anchored to the actual Cytoscape node. This is the original,
+    // proven positioning path and remains reliable with SillyTavern's mobile
+    // body layout. Mobile CSS only changes the panel's size and scrolling.
+    const isMobile = isMobileTimelineLayout();
     const ref = getTooltipReference(ele, 'full_info_panel');
     const isSwipe = Boolean(ele.data('isSwipe'));
     const placements = getNodeTippyPlacements(isSwipe);
+    const boundary = document.querySelector('#timelinesDiagramDiv');
 
     // We position the tooltip manually so it doesn't have a real target element.
     const dummyDomEle = document.createElement('div');
@@ -501,7 +600,7 @@ function makeTapTippy(ele) {
                 for (const [file_name, session_metadata] of Object.entries(ele.data('chat_sessions')).reverse()) {
                     // Create a container for the buttons
                     const btnContainer = document.createElement('div');
-                    btnContainer.style.display = 'flex';
+                    btnContainer.classList.add('timeline-session-actions');
 
                     // // Enable this if you want vertically centered buttons, where each button is sized separately to just accommodate its text content.
                     // // If disabled, the buttons in each row auto-size vertically to have the same height with each other (tallest one wins).
@@ -554,7 +653,7 @@ function makeTapTippy(ele) {
                                 zoom: Number(extension_settings.timeline.zoomToCurrentChatZoom),
                                 duration: 300,  // Adjust the duration as needed for a smooth transition
                             });
-                            tip.hide();  // Hide this full info panel
+                            closeTapTippy();  // Hide the current full info panel
                             flashNode(newCenterNode, 3, 250);
                             newCenterNode.emit('tap');  // And open the info panel of the jumped-to node
                         };
@@ -562,8 +661,7 @@ function makeTapTippy(ele) {
 
                     // 1. Previous message (on this timeline) button
                     const prevBtn = document.createElement('button');
-                    prevBtn.classList.add('menu_button');
-                    prevBtn.classList.add('widthNatural');
+                    prevBtn.classList.add('menu_button', 'widthNatural', 'timeline-session-step');
                     prevBtn.textContent = '<';  // ◀ triangle to the left
                     prevBtn.title = `Zoom to previous message in "${sessionName}".`;  // TODO: data-i18n?
                     const prevMessageSelector = makeTimelineNavigationMessageSelector(file_name, -1);
@@ -576,8 +674,7 @@ function makeTapTippy(ele) {
 
                     // 2. Next message (on this timeline) button
                     const nextBtn = document.createElement('button');
-                    nextBtn.classList.add('menu_button');
-                    nextBtn.classList.add('widthNatural');
+                    nextBtn.classList.add('menu_button', 'widthNatural', 'timeline-session-step');
                     nextBtn.textContent = '>';  // ▶ triangle to the right
                     nextBtn.title = `Zoom to next message in "${sessionName}".`;  // TODO: data-i18n?
                     const nextMessageSelector = makeTimelineNavigationMessageSelector(file_name, 1);
@@ -590,7 +687,7 @@ function makeTapTippy(ele) {
 
                     // 3. Main button (open this chat)
                     const navigateBtn = document.createElement('button');
-                    navigateBtn.classList.add('menu_button');
+                    navigateBtn.classList.add('menu_button', 'timeline-session-open');
                     navigateBtn.textContent = sessionName;
                     navigateBtn.title = `Find and open this message in "${sessionName}".`;  // TODO: data-i18n?
                     navigateBtn.addEventListener('click', function () {
@@ -599,8 +696,8 @@ function makeTapTippy(ele) {
                         } else {
                             navigateToMessage(file_name, messageId);
                         }
+                        closeTapTippy();
                         closeModal();
-                        tip.hide();  // Hide this full info panel
                         resetLegendHighlight(theCy);  // Reset the legend highlight state
                         restoreElements(theCy);  // Remove remaining highlights, if any (from text search)
                     });
@@ -613,18 +710,17 @@ function makeTapTippy(ele) {
 
                     // 4. Branch button (branch a new chat at this node)
                     const branchBtn = document.createElement('button');
-                    branchBtn.classList.add('branch_button'); // You might want to style this button differently in your CSS
+                    branchBtn.classList.add('branch_button', 'timeline-session-branch');
                     branchBtn.textContent = '→'; // Arrow to the right
-                    branchBtn.classList.add('menu_button');
-                    branchBtn.classList.add('widthNatural');
+                    branchBtn.classList.add('menu_button', 'widthNatural');
                     branchBtn.title = `Create a new branch from "${sessionName}", at this message, and open it.`;  // TODO: data-i18n?
                     branchBtn.addEventListener('click', function () {
                         if (ele.data('isSwipe'))
                             navigateToMessage(file_name, messageId, ele.data('swipeId'), true);
                         else
                             navigateToMessage(file_name, messageId, null, true);
+                        closeTapTippy();
                         closeModal();
-                        tip.hide();  // Hide this full info panel
                         resetLegendHighlight(theCy);  // Reset the legend highlight state
                         restoreElements(theCy);  // Remove remaining highlights, if any (from text search)
                     });
@@ -663,7 +759,12 @@ function makeTapTippy(ele) {
         sticky: 'reference',
         interactive: true,
         appendTo: document.body,
-        boundary: document.querySelector('#timelinesDiagramDiv'),
+        boundary: boundary,
+        onCreate(instance) {
+            if (isMobile) {
+                instance.popper.classList.add('timelines-tap-tippy');
+            }
+        },
         onShow() {
             isTapTippyVisible = true;
         },
@@ -676,13 +777,13 @@ function makeTapTippy(ele) {
                 {
                     name: 'preventOverflow',
                     options: {
-                        boundary: document.querySelector('#timelinesDiagramDiv'),
+                        boundary: boundary,
                     },
                 },
                 {
                     name: 'flip',
                     options: {
-                        boundary: document.querySelector('#timelinesDiagramDiv'),
+                        boundary: boundary,
                         fallbackPlacements: placements.fallback,
                     },
                 },
@@ -820,6 +921,7 @@ function createLegendItem(cy, container, item, type) {
 
     const legendText = document.createElement('div');
     legendText.className = 'legend-text';
+    legendText.title = item.text;
     if (item.text.includes(' - ')) {  // Omit the chat file timestamp, but keep the rest.
         legendText.innerText = item.text.split(' - ').slice(0, -1).join(' - ');
     } else {
@@ -1191,6 +1293,29 @@ function setupEventHandlers(cy, nodeData) {
 
     // Attach event listeners to toolbar buttons.
     let modal = document.getElementById('timelinesModal');
+    let searchToggleBtn = modal.getElementsByClassName('search-toggle')[0];
+    searchToggleBtn.onclick = function () {
+        if (!isMobileTimelineLayout()) {
+            return;
+        }
+        modal.classList.remove('timeline-legend-open');
+        modal.classList.toggle('timeline-search-open');
+        if (modal.classList.contains('timeline-search-open')) {
+            textSearchElement.placeholder = 'Search timeline…';
+            textSearchElement.focus();
+            textSearchElement.select();
+        }
+    };
+
+    let legendToggleBtn = modal.getElementsByClassName('legend-toggle')[0];
+    legendToggleBtn.onclick = function () {
+        if (!isMobileTimelineLayout() || !extension_settings.timeline.showLegend) {
+            return;
+        }
+        modal.classList.remove('timeline-search-open');
+        modal.classList.toggle('timeline-legend-open');
+    };
+
     let rotateBtn = modal.getElementsByClassName('rotate')[0];
     rotateBtn.onclick = function () {
         toggleGraphOrientation(cy, layout);
@@ -1260,40 +1385,44 @@ function setupEventHandlers(cy, nodeData) {
         }
     });
 
-    // Highlight edge on mouseover
-    cy.on('mouseover', 'edge', function (evt) {
-        const edge = evt.target;
-        highlightEdges(edge);
+    // Hover previews are desktop-only. Some mobile browsers synthesize mouseover
+    // from a tap, which otherwise replaces the actionable mobile details sheet.
+    if (!isMobileTimelineLayout()) {
+        // Highlight edge on mouseover
+        cy.on('mouseover', 'edge', function (evt) {
+            const edge = evt.target;
+            highlightEdges(edge);
 
-        if (isTapTippyVisible) {
-            return;  // No node tooltip when the full info panel is open
-        }
+            if (isTapTippyVisible) {
+                return;  // No node tooltip when the full info panel is open
+            }
 
-        // Edges can be long and sometimes only partly visible in the viewport,
-        // so use manual positioning for the tooltip.
-        const mousePos = {
-            x: evt.originalEvent.clientX,
-            y: evt.originalEvent.clientY
-        };
-        let tippy = makeTippy(edge, undefined, mousePos);  // no text content other than the automatic instruction
-        edge._tippy = tippy;  // Store the tippy instance on the graph element (so we can hide it later)
+            // Edges can be long and sometimes only partly visible in the viewport,
+            // so use manual positioning for the tooltip.
+            const mousePos = {
+                x: evt.originalEvent.clientX,
+                y: evt.originalEvent.clientY
+            };
+            let tippy = makeTippy(edge, undefined, mousePos);  // no text content other than the automatic instruction
+            edge._tippy = tippy;  // Store the tippy instance on the graph element (so we can hide it later)
 
-        showTimeout = setTimeout(() => { tippy.show(); }, 250);  // Delay the tooltip appearance by 250 ms
-    });
-    cy.on('mouseout', 'edge', function (evt) {
-        const edge = evt.target;
-        resetEdgesHighlight(edge);
+            showTimeout = setTimeout(() => { tippy.show(); }, 250);  // Delay the tooltip appearance by 250 ms
+        });
+        cy.on('mouseout', 'edge', function (evt) {
+            const edge = evt.target;
+            resetEdgesHighlight(edge);
 
-        // Clear the timeout if the mouse is moved out before the tooltip appears
-        if (showTimeout) {
-            clearTimeout(showTimeout);
-        }
+            // Clear the timeout if the mouse is moved out before the tooltip appears
+            if (showTimeout) {
+                clearTimeout(showTimeout);
+            }
 
-        if (edge._tippy) {
-            edge._tippy.hide();
-            edge._tippy = null;
-        }
-    });
+            if (edge._tippy) {
+                edge._tippy.hide();
+                edge._tippy = null;
+            }
+        });
+    }
 
     // Tap an edge to jump to the node at its far end
     cy.on('tap', 'edge', function (evt) {
@@ -1340,15 +1469,22 @@ function setupEventHandlers(cy, nodeData) {
         restoreElements(cy);  // Remove remaining highlights, if any (from text search)
         highlightConnectedEdges(node);  // but keep the connected edge highlights
 
-        // If the same node was already open, close the full info panel, and restore the hover tooltip.
+        // If the same node was already open, close the full info panel. On desktop,
+        // restore the hover tooltip; on touch screens, leave it closed.
         if (thisNodeWasOpen) {
-            const tippy = makeNodeTippy(node);
-            node._tippy = tippy;
-            tippy.show();
+            if (!isMobileTimelineLayout()) {
+                const tippy = makeNodeTippy(node);
+                node._tippy = tippy;
+                tippy.show();
+            }
         } else {  // Otherwise open the full info panel.
-            activeTapTippy = makeTapTippy(node);
             currentlyOpenNode = node;
-            activeTapTippy.show();
+            if (usesMobileDockedDetailsPane()) {
+                showMobileDockedDetailsPane(node);
+            } else {
+                activeTapTippy = makeTapTippy(node);
+                activeTapTippy.show();
+            }
         }
     });
 
@@ -1416,32 +1552,34 @@ function setupEventHandlers(cy, nodeData) {
         }
     });
 
-    // Tooltip on node mouseover
-    cy.on('mouseover', 'node', function (evt) {
-        const node = evt.target;
-        highlightConnectedEdges(node);
+    if (!isMobileTimelineLayout()) {
+        // Tooltip on node mouseover
+        cy.on('mouseover', 'node', function (evt) {
+            const node = evt.target;
+            highlightConnectedEdges(node);
 
-        if (isTapTippyVisible) {
-            return;  // No node tooltip when the full info panel is open
-        }
+            if (isTapTippyVisible) {
+                return;  // No node tooltip when the full info panel is open
+            }
 
-        const tippy = makeNodeTippy(node);
-        showTimeout = setTimeout(() => { tippy.show(); }, 250);  // Delay the tooltip appearance by 250 ms
-    });
-    cy.on('mouseout', 'node', function (evt) {
-        const node = evt.target;
-        resetConnectedEdgesHighlight(node);
+            const tippy = makeNodeTippy(node);
+            showTimeout = setTimeout(() => { tippy.show(); }, 250);  // Delay the tooltip appearance by 250 ms
+        });
+        cy.on('mouseout', 'node', function (evt) {
+            const node = evt.target;
+            resetConnectedEdgesHighlight(node);
 
-        // Clear the timeout if the mouse is moved out before the tooltip appears
-        if (showTimeout) {
-            clearTimeout(showTimeout);
-        }
+            // Clear the timeout if the mouse is moved out before the tooltip appears
+            if (showTimeout) {
+                clearTimeout(showTimeout);
+            }
 
-        if (node._tippy) {
-            node._tippy.hide();
-            node._tippy = null;
-        }
-    });
+            if (node._tippy) {
+                node._tippy.hide();
+                node._tippy = null;
+            }
+        });
+    }
 
     // On certain chat events, null the lastContext, so that the graph refreshes at the next `updateTimelineDataIfNeeded`.
     // TODO: Are there other events we should catch?
@@ -1597,7 +1735,12 @@ async function onTimelineButtonClick() {
         hideLoader();
     }
 
-    handleModalDisplay();  // Show the timeline view, and wire the close button to close it.
+    handleModalDisplay(resetTimelineInteractionState);  // Show the timeline view, and wire the close button to close it.
+    const modal = document.getElementById('timelinesModal');
+    modal.getElementsByClassName('legend-toggle')[0].hidden = !extension_settings.timeline.showLegend;
+    if (isMobileTimelineLayout()) {
+        modal.classList.remove('timeline-search-open', 'timeline-legend-open');
+    }
     if (dataUpdated) {
         renderCytoscapeDiagram(lastTimelineData);  // after this, the Cytoscape instance `theCy` is alive
         toggleSwipes(theCy, extension_settings.timeline.autoExpandSwipes);
@@ -1608,8 +1751,11 @@ async function onTimelineButtonClick() {
     // (this avoids some failed pans/zooms).
     setTimeout(() => {
         let textSearchElement = document.getElementById('transparent-search');
-        textSearchElement.focus();
-        textSearchElement.select();  // select content for easy erasing
+        if (!isMobileTimelineLayout()) {
+            textSearchElement.placeholder = 'Search [Ctrl+Shift+F]...';
+            textSearchElement.focus();
+            textSearchElement.select();  // select content for easy erasing
+        }
         zoomToCurrentChatNode(theCy);  // override the zoom-to-search
         // textSearchElement.dispatchEvent(new Event('input'));  // no need to trigger input event to perform search, since now focusing the element already searches
     }, 500);
@@ -1840,6 +1986,9 @@ function processTimelinesHotkeys(event) {
 
     if (event.ctrlKey && event.shiftKey && event.key === 'F') {  // A bare "Ctrl+F" would also trigger the browser's search field
         const textSearchElement = document.getElementById('transparent-search');
+        if (isMobileTimelineLayout()) {
+            document.getElementById('timelinesModal').classList.add('timeline-search-open');
+        }
         textSearchElement.focus();
         textSearchElement.select();  // select content for easy erasing
     }

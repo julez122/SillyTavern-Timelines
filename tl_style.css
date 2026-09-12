@@ -1,5 +1,5 @@
 /* The invisible outer modal, covering the whole viewport */
-.modal {
+#timelinesModal {
     display: none;
     position: fixed;
     z-index: 9999;
@@ -83,117 +83,46 @@
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* The Close Button */
-.close {
+/* Timeline toolbar controls */
+.timeline-toolbar {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.timeline-toolbar-actions {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    pointer-events: auto;
+}
+
+.timeline-toolbar button {
     color: #aaaaaa;
-    float: right;
     font-size: 24px;
     font-weight: bold;
-    z-index: 3;
-    position: relative;
     background: none;
-        border: none;
-        padding: 0;
+    border: none;
+    padding: 0;
 }
-.close:hover {
+
+.timeline-toolbar button:hover {
     color: red;
     text-decoration: none;
     cursor: pointer;
 }
 
-/* The Expand (Toggle Swipes) Button */
-.expand {
-    color: #aaaaaa;
-    float: right;
-    font-size: 24px;
-    font-weight: bold;
-    z-index: 3;
-    position: relative;
-    background: none;
-        border: none;
-        padding: 0;
-        padding-right: 10px;
-}
-.expand:hover {
-    color: #808080;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* The Rotate Button */
-.rotate {
-    color: #aaaaaa;
-    float: right;
-    font-size: 24px;
-    font-weight: bold;
-    z-index: 3;
-    position: relative;
-    background: none;
-        border: none;
-        padding: 0;
-        padding-right: 10px;
-}
-.rotate:hover {
-    color: #808080;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* The Reload Button */
-.reload {
-    color: #aaaaaa;
-    float: right;
-    font-size: 24px;
-    font-weight: bold;
-    z-index: 3;
-    position: relative;
-    background: none;
-    border: none;
-    padding: 0;
-    padding-right: 10px;
-}
-.reload:hover {
-    color: #808080;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* The Zoom to Fit Button */
-.zoomtofit {
-    color: #aaaaaa;
-    float: right;
-    font-size: 24px;
-    font-weight: bold;
-    z-index: 3;
-    position: relative;
-    background: none;
-    border: none;
-    padding: 0;
-    padding-right: 10px;
-}
-.zoomtofit:hover {
-    color: #808080;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* The Zoom to Current Button */
-.zoomtocurrent {
-    color: #aaaaaa;
-    float: right;
-    font-size: 24px;
-    font-weight: bold;
-    z-index: 3;
-    position: relative;
-    background: none;
-    border: none;
-    padding: 0;
-    padding-right: 10px;
-}
-.zoomtocurrent:hover {
-    color: #808080;
-    text-decoration: none;
-    cursor: pointer;
+.legend-toggle,
+.search-toggle {
+    display: none;
 }
 
 .hidden {
@@ -205,12 +134,9 @@
     border: none;
     outline: none;
     color: white;
-    position: absolute;
-    top: 10px;
-    left: 10px;
     width: 200px;
     font-size: 16px;
-    z-index: 10;
+    pointer-events: auto;
 }
 
 .timelines-text-search-match {
@@ -234,7 +160,8 @@
     border-radius: 4px; /* Optional: if you want rounded corners */
 }
 
-.tippy-box button:hover {
+.tippy-box button:hover,
+.timeline-mobile-details button:hover {
     background-color: #0056b3;
 }
 
@@ -244,21 +171,281 @@
     overflow: auto;
 }
 
-.tippy-box .menu_div {  /* Navigation buttons section in the full info panel */
+.tippy-box .menu_div,
+.timeline-mobile-details .menu_div {  /* Navigation buttons section in the full info panel */
     max-height: 45vh;
     overflow-y: auto;
 }
 
-.tippy-box .menu_button {  /* Each individual navigation button in the full info panel */
-    width: 100%;
+.tippy-box .menu_button,
+.timeline-mobile-details .menu_button {  /* Each individual navigation button in the full info panel */
+    width: auto;
 }
 
-.tippy-box .name_text {
+.tippy-box .name_text,
+.timeline-mobile-details .name_text {
     font-weight: bold;
 }
 
-.tippy-box .mes_text {  /* Message content section in the full info panel */
+.tippy-box .mes_text,
+.timeline-mobile-details .mes_text {  /* Message content section in the full info panel */
     max-height: 50vh;
     max-width: 70vw;
     overflow-y: auto;
+    overflow-wrap: anywhere;
+}
+
+.tippy-box .timeline-session-actions,
+.timeline-mobile-details .timeline-session-actions {
+    display: grid !important;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 4px;
+    min-width: 0;
+    margin-bottom: 6px;
+}
+
+.tippy-box .timeline-session-actions .menu_button,
+.timeline-mobile-details .timeline-session-actions .menu_button {
+    min-width: 0;
+    margin: 0;
+}
+
+.tippy-box .timeline-session-open,
+.timeline-mobile-details .timeline-session-open {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media screen and (max-width: 700px) {
+    #timelinesModal {
+        width: 100dvw;
+        height: 100dvh;
+    }
+
+    #networkContainer {
+        box-sizing: border-box;
+        width: calc(100dvw - 16px);
+        height: calc(100dvh - 16px);
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .timeline-toolbar {
+        position: relative;
+        top: auto;
+        right: auto;
+        left: auto;
+        min-height: 36px;
+        flex: 0 0 auto;
+    }
+
+    .timeline-toolbar-actions {
+        gap: 6px;
+    }
+
+    .timeline-toolbar button {
+        min-width: 28px;
+        min-height: 28px;
+        font-size: 21px;
+    }
+
+    .legend-toggle,
+    .search-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #transparent-search {
+        box-sizing: border-box;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 30;
+        width: 100%;
+        min-height: 36px;
+        padding: 6px 10px;
+        border: 1px solid var(--SmartThemeBorderColor);
+        border-radius: 6px;
+        background-color: var(--SmartThemeBlurTintColor);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-4px);
+        transition: opacity var(--animation-duration-2x), transform var(--animation-duration-2x);
+    }
+
+    #transparent-search::placeholder {
+        color: transparent;
+    }
+
+    #timelinesModal.timeline-search-open #transparent-search {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+
+    #timelinesModal.timeline-search-open #transparent-search::placeholder {
+        color: currentColor;
+    }
+
+    .graph-container {
+        position: relative;
+        flex: 1 1 0;
+        min-height: 0;
+    }
+
+    #timelinesDiagramDiv {
+        position: absolute;
+        inset: 0;
+    }
+
+    .timeline-mobile-details:not([hidden]) {  /* Dock the non-fixed mobile details beside the interactive graph rail. */
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 25;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        width: min(68dvw, 360px);
+        max-width: calc(100% - 96px);
+        min-width: 0;
+        padding: 8px;
+        overflow: hidden;
+        border-left: 2px solid var(--SmartThemeBorderColor);
+        background-color: var(--SmartThemeBlurTintColor);
+        backdrop-filter: blur(var(--SmartThemeBlurStrength));
+        -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
+        box-shadow: -8px 0 16px rgba(0, 0, 0, 0.24);
+    }
+
+    .timeline-mobile-details-header {  /* Keep the pane title and close control visible while its message scrolls. */
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex: 0 0 auto;
+        min-width: 0;
+        padding: 2px 2px 8px;
+        border-bottom: 1px solid var(--SmartThemeBorderColor);
+    }
+
+    .timeline-mobile-details-header span {  /* Prevent the concise pane heading from forcing the close control off-screen. */
+        overflow: hidden;
+        font-weight: bold;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .timeline-mobile-details-header button {  /* Give the pane close control a reliable mobile tap target. */
+        flex: 0 0 32px;
+        min-width: 32px;
+        min-height: 32px;
+        padding: 0;
+        color: #aaaaaa;
+        font-size: 20px;
+        background: none;
+        border: none;
+    }
+
+    .timeline-mobile-details-content {  /* The pane owns the only vertical scroll area for node details. */
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+        padding-top: 8px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
+
+    .timeline-mobile-details .tap_tippy_content {  /* Remove Tippy's nested scroll limits when its content is docked. */
+        max-width: none;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .timeline-mobile-details .menu_div,
+    .timeline-mobile-details .mes_text {  /* Let the pane content area, rather than nested regions, handle scrolling. */
+        max-width: none;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .timeline-mobile-details .timeline-session-actions {  /* Keep all four session actions usable in the narrow docked pane. */
+        grid-template-columns: 34px 34px minmax(0, 1fr) 34px;
+    }
+
+    .legend-bottom-right {
+        right: 0;
+        bottom: 0;
+        left: 0;
+        box-sizing: border-box;
+        display: none !important;
+        max-height: min(35dvh, 260px);
+        padding: 8px;
+        overflow-y: auto;
+    }
+
+    #timelinesModal.timeline-legend-open .legend-bottom-right {
+        display: block !important;
+    }
+
+    .legend-item {
+        min-width: 0;
+        margin: 5px 0;
+    }
+
+    .legend-symbol {
+        width: 18px;
+        height: 18px;
+        margin-right: 8px;
+        flex: 0 0 auto;
+    }
+
+    .legend-text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .timelines-tap-tippy .tippy-box {
+        box-sizing: border-box;
+        width: calc(100dvw - 24px);
+        max-width: calc(100dvw - 24px);
+        max-height: calc(100dvh - 76px);
+        padding: 12px;
+    }
+
+    .timelines-tap-tippy .tippy-content {
+        overflow: hidden;
+    }
+
+    .timelines-tap-tippy .tap_tippy_content {
+        max-width: none;
+        max-height: calc(100dvh - 140px);
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
+
+    .timelines-tap-tippy .menu_div,
+    .timelines-tap-tippy .mes_text {
+        max-width: none;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .timelines-tap-tippy .timeline-session-actions {
+        grid-template-columns: 34px 34px minmax(0, 1fr) 34px;
+    }
 }
