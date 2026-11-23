@@ -16,11 +16,11 @@
 #networkContainer {
     background-color: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(var(--SmartThemeBlurStrength));
-    background-color: var(--SmartThemeBlurTintColor);
+    background-color: rgba(0, 0, 0, 0.5);
     -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
     text-shadow: 0px 0px calc(var(--shadowWidth) * 1px) var(--SmartThemeShadowColor);
     padding: 20px;
-    border: 1px solid #888;
+    border: 1.5px solid color-mix(in srgb, var(--SmartThemeBodyColor) 50%, #000000);
     width: 90vw;
     height: 90vh;
     position: absolute;
@@ -106,7 +106,7 @@
 }
 
 .timeline-toolbar button {
-    color: #aaaaaa;
+    color: var(--SmartThemeBorderColor);
     font-size: 24px;
     font-weight: bold;
     background: none;
@@ -115,7 +115,7 @@
 }
 
 .timeline-toolbar button:hover {
-    color: red;
+    color: var(--SmartThemeBodyColor);
     text-decoration: none;
     cursor: pointer;
 }
@@ -162,7 +162,7 @@
 
 .tippy-box button:hover,
 .timeline-mobile-details button:hover {
-    background-color: #0056b3;
+    color: var(--SmartThemeBodyColor);
 }
 
 .tap_tippy_content {  /* The full info panel */
@@ -209,6 +209,10 @@
 .timeline-mobile-details .timeline-session-actions .menu_button {
     min-width: 0;
     margin: 0;
+    max-height: 25px;
+    font-size: 12px;
+    width: auto;
+    height: auto;
 }
 
 .tippy-box .timeline-session-open,
@@ -221,6 +225,11 @@
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.timeline-view-settings_block.flex-container .menu_button {
+    font-size: 12px;
+    margin: 5px auto;
 }
 
 @media screen and (max-width: 700px) {
@@ -243,7 +252,7 @@
         top: auto;
         right: auto;
         left: auto;
-        min-height: 36px;
+        min-height: 28px;
         flex: 0 0 auto;
     }
 
@@ -254,7 +263,7 @@
     .timeline-toolbar button {
         min-width: 28px;
         min-height: 28px;
-        font-size: 21px;
+        font-size: 15px;
     }
 
     .legend-toggle,
@@ -287,13 +296,20 @@
     }
 
     #timelinesModal.timeline-search-open #transparent-search {
+        font-family: 'Inconsolata Custom', monospace;
         opacity: 1;
         pointer-events: auto;
         transform: translateY(0);
+        min-height: 25px;
+        height: 25px;
+        font-size: 12px;
+        color: var(--SmartThemeEmColor);
+        background-color: var(--SmartThemeBlurTintColor);
     }
 
     #timelinesModal.timeline-search-open #transparent-search::placeholder {
         color: currentColor;
+        opacity: 0.8;
     }
 
     .graph-container {
@@ -319,13 +335,15 @@
         width: min(68dvw, 360px);
         max-width: calc(100% - 96px);
         min-width: 0;
-        padding: 8px;
+        padding: 10px 6px 8px 12px;
         overflow: hidden;
+        border-top: 2px solid var(--SmartThemeBorderColor);
+        border-right: 2px solid var(--SmartThemeBorderColor);
         border-left: 2px solid var(--SmartThemeBorderColor);
-        background-color: var(--SmartThemeBlurTintColor);
+        background-color: rgba(17, 16, 16, 0.8);
         backdrop-filter: blur(var(--SmartThemeBlurStrength));
         -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
-        box-shadow: -8px 0 16px rgba(0, 0, 0, 0.24);
+        box-shadow: -5px 0px 16px 3px rgba(197, 56, 117, 0.2);
     }
 
     .timeline-mobile-details-header {  /* Keep the pane title and close control visible while its message scrolls. */
@@ -347,12 +365,12 @@
     }
 
     .timeline-mobile-details-header button {  /* Give the pane close control a reliable mobile tap target. */
-        flex: 0 0 32px;
-        min-width: 32px;
-        min-height: 32px;
+        flex: 0 0 12px;
+        min-width: 20px;
+        min-height: 20px;
         padding: 0;
-        color: #aaaaaa;
-        font-size: 20px;
+        color: var(--SmartThemeBorderColor);
+        font-size: 12px;
         background: none;
         border: none;
     }
@@ -365,6 +383,7 @@
         overflow-x: hidden;
         overflow-y: auto;
         scrollbar-gutter: stable;
+        scrollbar-width: none;
     }
 
     .timeline-mobile-details .tap_tippy_content {  /* Remove Tippy's nested scroll limits when its content is docked. */
@@ -378,7 +397,16 @@
         max-width: none;
         max-height: none;
         overflow: visible;
+        font-size: 12px;
+        line-height: 1.45;
+        text-align: justify;
+        padding-right: 5px;
     }
+
+    .timeline-mobile-details .menu_div, 
+    .timeline-mobile-details p {
+    margin-bottom: 0;
+}
 
     .timeline-mobile-details .timeline-session-actions {  /* Keep all four session actions usable in the narrow docked pane. */
         grid-template-columns: 34px 34px minmax(0, 1fr) 34px;
@@ -391,8 +419,9 @@
         box-sizing: border-box;
         display: none !important;
         max-height: min(35dvh, 260px);
-        padding: 8px;
+        padding: 5px 8px;
         overflow-y: auto;
+        font-size: 12px;
     }
 
     #timelinesModal.timeline-legend-open .legend-bottom-right {

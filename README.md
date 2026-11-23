@@ -5,7 +5,6 @@ An extension for timeline based navigation of ST chat histories.
 
 Think *Loom* [[1]](https://generative.ink/posts/loom-interface-to-the-multiverse/) [[2]](https://www.lesswrong.com/posts/bxt7uCiHam4QXrQAA/cyborgism#Appendix__Testimony_of_a_Cyborg), but built on ST's chat paradigm.
 
-
 ## Features
 
 - Display all chats with the current character. Chat messages with the same content are shown as a single node on the timeline.
@@ -104,7 +103,6 @@ However, checkpoint tracking complicates things slightly:
 - If you overwrite a checkpoint, only the **new** checkpoint is tracked as a checkpoint path.
   - The checkpoint chat file for the old checkpoint then appears as an independent chat file in the timeline view.
 - The *checkpoint node* in the graph is at the message where the *originating* chat file has the checkpoint link.
-
 
 ## Prerequisites
 
